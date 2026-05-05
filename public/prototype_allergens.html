@@ -1,0 +1,941 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>Allergen Tracker</title>
+  <style>
+    :root {
+      --safe: #22c55e;
+      --safe-light: #dcfce7;
+      --unsafe: #f59e0b;
+      --unsafe-light: #fef3c7;
+      --never: #ef4444;
+      --never-light: #fee2e2;
+      --unknown: #94a3b8;
+      --unknown-light: #f1f5f9;
+      --bg: #f8fafc;
+      --text: #0f172a;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+      --accent: #6366f1;
+      --accent-light: #eef2ff;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      max-width: 430px;
+      margin: 0 auto;
+      padding-bottom: 60px;
+    }
+
+    /* ── Header ── */
+    .header {
+      background: white;
+      padding: 16px 16px 12px;
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .header h1 { font-size: 18px; font-weight: 700; }
+    .header .date { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+    /* ── Section wrapper ── */
+    .section { padding: 16px 16px 0; }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+    }
+
+    /* ── Card container (holds rows) ── */
+    .card {
+      background: white;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+
+    /* ── Allergen row ── */
+    .allergen-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      min-height: 52px;
+    }
+    .allergen-row:last-child { border-bottom: none; }
+    .allergen-row:active { background: var(--bg); }
+    .allergen-row.in-progress { border-left: 3px solid var(--accent); padding-left: 11px; }
+
+    .row-icon {
+      font-size: 20px;
+      width: 32px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+
+    .row-body { flex: 1; min-width: 0; }
+    .row-name { font-size: 14px; font-weight: 600; }
+    .row-meta { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+
+    /* test dots inline */
+    .dots {
+      display: flex;
+      gap: 4px;
+      margin-top: 4px;
+    }
+    .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+    }
+    .dot.filled { background: var(--safe); }
+    .dot.empty  { background: var(--border); }
+
+    .row-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
+      flex-shrink: 0;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 7px;
+      border-radius: 99px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+    .badge.safe    { background: var(--safe-light);    color: #15803d; }
+    .badge.unsafe  { background: var(--unsafe-light);  color: #b45309; }
+    .badge.never   { background: var(--never-light);   color: #dc2626; }
+    .badge.unknown { background: var(--unknown-light);  color: #475569; }
+
+    .next-chip {
+      font-size: 10px;
+      background: var(--accent-light);
+      color: var(--accent);
+      padding: 2px 6px;
+      border-radius: 5px;
+      font-weight: 500;
+    }
+
+    /* ── Schedule ── */
+    .cal-scroll-wrap {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: white;
+      margin-bottom: 12px;
+    }
+
+    .calendar {
+      min-width: 520px;
+    }
+
+    .cal-header {
+      display: grid;
+      grid-template-columns: 32px repeat(7, 1fr);
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .cal-day {
+      padding: 7px 4px;
+      text-align: center;
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+    }
+    .cal-day .num {
+      display: block;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      margin-top: 1px;
+    }
+    .cal-day.today .num {
+      background: var(--accent);
+      color: white;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 1px auto 0;
+    }
+
+    .cal-row {
+      display: grid;
+      grid-template-columns: 32px repeat(7, 1fr);
+      border-bottom: 1px solid var(--border);
+    }
+    .cal-row:last-child { border-bottom: none; }
+
+    .cal-slot {
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg);
+      border-right: 1px solid var(--border);
+      letter-spacing: 0.05em;
+    }
+
+    .cal-cell {
+      padding: 6px 3px;
+      min-height: 54px;
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+    }
+    .cal-cell:last-child { border-right: none; }
+
+    .cal-food {
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--text);
+      text-align: center;
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+    .cal-food.test {
+      background: var(--never-light);
+      color: #dc2626;
+      font-weight: 700;
+      border-radius: 4px;
+      padding: 1px 4px;
+    }
+
+    .cal-legend {
+      font-size: 11px;
+      color: var(--text-muted);
+      line-height: 1.7;
+      padding: 10px 14px;
+      background: white;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      margin-bottom: 12px;
+    }
+
+    /* ── Other foods ── */
+    .cat-label {
+      font-size: 12px;
+      font-weight: 700;
+      padding: 9px 14px;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+    }
+    .cat-count { font-weight: 400; color: var(--text-muted); font-size: 11px; }
+
+    .food-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      gap: 8px;
+    }
+    .food-row:last-child { border-bottom: none; }
+    .food-row:active { background: var(--bg); }
+    .food-name { font-size: 13px; font-weight: 500; }
+    .food-meta { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+
+    /* ── Log modal (bottom sheet) ── */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 200;
+      display: flex;
+      align-items: flex-end;
+    }
+    .sheet {
+      background: white;
+      border-radius: 20px 20px 0 0;
+      padding: 16px 20px 48px;
+      width: 100%;
+    }
+    .sheet-handle {
+      width: 36px;
+      height: 4px;
+      background: var(--border);
+      border-radius: 2px;
+      margin: 0 auto 16px;
+    }
+    .sheet-title { font-size: 18px; font-weight: 700; }
+    .sheet-sub   { font-size: 13px; color: var(--text-muted); margin-top: 3px; margin-bottom: 18px; }
+
+    .log-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .log-row input[type="checkbox"] {
+      width: 20px;
+      height: 20px;
+      accent-color: var(--accent);
+      flex-shrink: 0;
+    }
+    .log-row label { font-size: 14px; font-weight: 500; cursor: pointer; }
+
+    .submit-btn {
+      width: 100%;
+      padding: 14px;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 16px;
+    }
+
+    /* Reaction — hidden until toggled */
+    .reaction-toggle {
+      text-align: center;
+      margin-top: 12px;
+      font-size: 13px;
+      color: var(--text-muted);
+      cursor: pointer;
+      text-decoration: underline;
+      text-decoration-style: dotted;
+    }
+
+    .reaction-panel {
+      margin-top: 14px;
+      padding: 14px;
+      background: var(--never-light);
+      border-radius: 10px;
+      border: 1px solid #fecaca;
+    }
+    .reaction-panel-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: #dc2626;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .reaction-options { display: flex; gap: 8px; }
+    .reaction-btn {
+      flex: 1;
+      padding: 10px 6px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: center;
+      border: none;
+    }
+    .reaction-btn.mild {
+      background: var(--unsafe-light);
+      color: #b45309;
+      border: 1px solid #fcd34d;
+    }
+    .reaction-btn.severe {
+      background: var(--never-light);
+      color: #dc2626;
+      border: 1px solid #fca5a5;
+    }
+    .reaction-desc {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* Add food button */
+    .add-food-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px;
+      cursor: pointer;
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 600;
+      border-top: 1px solid var(--border);
+    }
+    .add-food-row:active { background: var(--bg); }
+
+    /* Add food sheet extras */
+    .field-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      margin-top: 14px;
+    }
+    .text-input {
+      width: 100%;
+      padding: 11px 12px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 15px;
+      font-family: inherit;
+      outline: none;
+    }
+    .text-input:focus { border-color: var(--accent); }
+    .cat-options { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
+    .cat-btn {
+      padding: 7px 14px;
+      border-radius: 99px;
+      border: 1px solid var(--border);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      background: white;
+    }
+    .cat-btn.selected { background: var(--accent-light); border-color: var(--accent); color: var(--accent); font-weight: 700; }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🍼 Allergen Tracker</h1>
+  <div class="date">Monday, May 4, 2026</div>
+</div>
+
+<!-- ════════════════════════════════════
+     SECTION 1: MAJOR ALLERGENS
+════════════════════════════════════ -->
+<div class="section" style="padding-top:18px;">
+  <div class="section-label">Major Allergens</div>
+
+  <!-- In Progress -->
+  <div class="section-label" style="color:#94a3b8;font-size:10px;margin-top:4px;margin-bottom:6px;">In progress</div>
+  <div class="card">
+    <div class="allergen-row in-progress" onclick="openLog('Egg','Test 2 of 4','unsafe')">
+      <div class="row-icon">🥚</div>
+      <div class="row-body">
+        <div class="row-name">Egg</div>
+        <div class="dots">
+          <div class="dot filled"></div>
+          <div class="dot filled"></div>
+          <div class="dot empty"></div>
+          <div class="dot empty"></div>
+        </div>
+      </div>
+      <div class="row-right">
+        <span class="badge unsafe">UNSAFE</span>
+        <span class="row-meta">Last May 1</span>
+      </div>
+    </div>
+
+    <div class="allergen-row in-progress" onclick="openLog('Peanut','Test 2 of 4','unknown')">
+      <div class="row-icon">🥜</div>
+      <div class="row-body">
+        <div class="row-name">Peanut</div>
+        <div class="dots">
+          <div class="dot filled"></div>
+          <div class="dot empty"></div>
+          <div class="dot empty"></div>
+          <div class="dot empty"></div>
+        </div>
+      </div>
+      <div class="row-right">
+        <span class="badge unknown">UNKNOWN</span>
+        <span class="row-meta">Last Apr 28</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Safe / In rotation -->
+  <div class="section-label" style="color:#94a3b8;font-size:10px;margin-bottom:6px;">Safe · In rotation</div>
+  <div class="card">
+    <div class="allergen-row" onclick="openLog('Dairy','Log consumption','safe')">
+      <div class="row-icon">🥛</div>
+      <div class="row-body">
+        <div class="row-name">Dairy</div>
+        <div class="dots">
+          <div class="dot filled"></div><div class="dot filled"></div>
+          <div class="dot filled"></div><div class="dot filled"></div>
+        </div>
+      </div>
+      <div class="row-right">
+        <span class="badge safe">SAFE</span>
+        <span class="next-chip">Tomorrow AM</span>
+      </div>
+    </div>
+
+    <div class="allergen-row" onclick="openLog('Soy','Log consumption','safe')">
+      <div class="row-icon">🫘</div>
+      <div class="row-body">
+        <div class="row-name">Soy</div>
+        <div class="dots">
+          <div class="dot filled"></div><div class="dot filled"></div>
+          <div class="dot filled"></div><div class="dot filled"></div>
+        </div>
+      </div>
+      <div class="row-right">
+        <span class="badge safe">SAFE</span>
+        <span class="next-chip">Wed PM</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Not yet started -->
+  <div class="section-label" style="color:#94a3b8;font-size:10px;margin-bottom:6px;">Not yet started · Weekday AM only</div>
+  <div class="card">
+    <div class="allergen-row" onclick="openLog('Sesame','First introduction','unknown')">
+      <div class="row-icon">🌱</div>
+      <div class="row-body"><div class="row-name">Sesame</div></div>
+      <div class="row-right"><span class="badge unknown">UNKNOWN</span></div>
+    </div>
+    <div class="allergen-row" onclick="openLog('Almond','First introduction','unknown')">
+      <div class="row-icon">🌰</div>
+      <div class="row-body"><div class="row-name">Almond</div></div>
+      <div class="row-right"><span class="badge unknown">UNKNOWN</span></div>
+    </div>
+    <div class="allergen-row" onclick="openLog('Cashew','First introduction','unknown')">
+      <div class="row-icon">🥜</div>
+      <div class="row-body"><div class="row-name">Cashew</div></div>
+      <div class="row-right"><span class="badge unknown">UNKNOWN</span></div>
+    </div>
+    <div class="allergen-row" onclick="openLog('Walnut','First introduction','unknown')">
+      <div class="row-icon">🌰</div>
+      <div class="row-body"><div class="row-name">Walnut</div></div>
+      <div class="row-right"><span class="badge unknown">UNKNOWN</span></div>
+    </div>
+    <div class="allergen-row" onclick="openLog('Whitefish','First introduction','unknown')">
+      <div class="row-icon">🐟</div>
+      <div class="row-body"><div class="row-name">Whitefish</div></div>
+      <div class="row-right"><span class="badge unknown">UNKNOWN</span></div>
+    </div>
+    <div class="allergen-row" onclick="openLog('Shellfish','First introduction','unknown')">
+      <div class="row-icon">🦐</div>
+      <div class="row-body"><div class="row-name">Shellfish</div></div>
+      <div class="row-right"><span class="badge unknown">UNKNOWN</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     SECTION 2: SCHEDULE
+════════════════════════════════════ -->
+<div class="section" style="padding-top:6px;">
+  <div class="section-label">Schedule · Week of May 4</div>
+
+  <div class="cal-scroll-wrap">
+    <div class="calendar">
+      <div class="cal-header">
+        <div></div>
+        <div class="cal-day today">Mon<span class="num">4</span></div>
+        <div class="cal-day">Tue<span class="num">5</span></div>
+        <div class="cal-day">Wed<span class="num">6</span></div>
+        <div class="cal-day">Thu<span class="num">7</span></div>
+        <div class="cal-day">Fri<span class="num">8</span></div>
+        <div class="cal-day">Sat<span class="num">9</span></div>
+        <div class="cal-day">Sun<span class="num">10</span></div>
+      </div>
+
+      <div class="cal-row">
+        <div class="cal-slot">AM</div>
+        <div class="cal-cell">
+          <span class="cal-food test">Peanut T2</span>
+          <span class="cal-food">Dairy</span>
+        </div>
+        <div class="cal-cell">
+          <span class="cal-food">Dairy</span>
+          <span class="cal-food">Soy</span>
+        </div>
+        <div class="cal-cell">
+          <span class="cal-food test">Egg T3</span>
+          <span class="cal-food">Dairy</span>
+        </div>
+        <div class="cal-cell">
+          <span class="cal-food">Soy</span>
+          <span class="cal-food">Dairy</span>
+        </div>
+        <div class="cal-cell">
+          <span class="cal-food test">Peanut T3</span>
+          <span class="cal-food">Soy</span>
+        </div>
+        <div class="cal-cell">
+          <span class="cal-food">Dairy</span>
+        </div>
+        <div class="cal-cell">
+          <span class="cal-food">Soy</span>
+        </div>
+      </div>
+
+      <div class="cal-row">
+        <div class="cal-slot">PM</div>
+        <div class="cal-cell">
+          <span class="cal-food">Soy</span>
+        </div>
+        <div class="cal-cell">
+          <span class="cal-food">Dairy</span>
+          <span class="cal-food">Egg</span>
+        </div>
+        <div class="cal-cell">
+          <span class="cal-food">Soy</span>
+        </div>
+        <div class="cal-cell">
+          <span class="cal-food">Dairy</span>
+        </div>
+        <div class="cal-cell">
+          <span class="cal-food">Dairy</span>
+        </div>
+        <div class="cal-cell">
+          <span class="cal-food">Soy</span>
+          <span class="cal-food">Dairy</span>
+        </div>
+        <div class="cal-cell">
+          <span class="cal-food">Dairy</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cal-legend">
+    <strong style="color:var(--text)">Key</strong> · Purple = allergen test (T2, T3…) · Plain text = safe food in rotation
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     SECTION 3: OTHER FOODS
+════════════════════════════════════ -->
+<div class="section" style="padding-top:6px;">
+  <div class="section-label">Other Foods</div>
+  <div id="other-foods-container"></div>
+</div>
+
+<!-- ════════════════════════════════════
+     ADD FOOD MODAL (bottom sheet)
+════════════════════════════════════ -->
+<div class="overlay" id="add-overlay" style="display:none;" onclick="handleAddOverlay(event)">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Add Food</div>
+    <div class="sheet-sub">New foods start as UNKNOWN</div>
+
+    <div class="field-label">Food name</div>
+    <input class="text-input" id="new-food-name" type="text" placeholder="e.g. Blueberry" autocomplete="off" oninput="previewCategory()">
+    <div id="cat-preview" style="font-size:12px;color:var(--text-muted);margin-top:6px;min-height:18px;"></div>
+
+    <button class="submit-btn" style="margin-top:16px;" onclick="submitNewFood()">Add Food</button>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     LOG MODAL (bottom sheet)
+════════════════════════════════════ -->
+<div class="overlay" id="overlay" style="display:none;" onclick="handleOverlay(event)">
+  <div class="sheet" id="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="sheet-title">Egg</div>
+    <div class="sheet-sub" id="sheet-sub">Test 2 of 4 · May 4, 2026</div>
+
+    <div class="log-row">
+      <input type="checkbox" id="log-check" checked>
+      <label for="log-check">Mark as fed today</label>
+    </div>
+
+    <button class="submit-btn" onclick="submitLog()">Log Feeding</button>
+
+    <div class="reaction-toggle" id="reaction-toggle" onclick="toggleReaction()">
+      Report a reaction
+    </div>
+
+    <div class="reaction-panel" id="reaction-panel" style="display:none;">
+      <div class="reaction-panel-title">⚠ What kind of reaction?</div>
+      <div class="reaction-options">
+        <div>
+          <button class="reaction-btn mild" onclick="submitReaction('mild')">⚠ Mild</button>
+          <div class="reaction-desc" style="text-align:center;margin-top:4px;">Mark Unsafe</div>
+        </div>
+        <div>
+          <button class="reaction-btn severe" onclick="submitReaction('severe')">✗ Severe</button>
+          <div class="reaction-desc" style="text-align:center;margin-top:4px;">Mark Never</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ── Food data ──────────────────────────────────────────────────────────────
+  // status: 'unknown' | 'unsafe' | 'never' | 'safe'
+  // testsCompleted: number (non-major allergens need 2 to reach safe)
+  // lastConsumed: string or null
+  const OTHER_FOODS = [
+    // Fruits
+    { name: 'Apple',               category: 'Fruits',     status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Apricot',             category: 'Fruits',     status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Avocado',             category: 'Fruits',     status: 'unsafe',  testsCompleted: 1, lastConsumed: 'Apr 30' },
+    { name: 'Banana',              category: 'Fruits',     status: 'safe',    testsCompleted: 2, lastConsumed: 'May 3' },
+    { name: 'Blackberry',          category: 'Fruits',     status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Blueberry',           category: 'Fruits',     status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Cantaloupe',          category: 'Fruits',     status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Cherry',              category: 'Fruits',     status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Clementine',          category: 'Fruits',     status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Fig',                 category: 'Fruits',     status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Grape',               category: 'Fruits',     status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Guava',               category: 'Fruits',     status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Honeydew',            category: 'Fruits',     status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Kiwi',                category: 'Fruits',     status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Mango',               category: 'Fruits',     status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Nectarine',           category: 'Fruits',     status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Orange',              category: 'Fruits',     status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Papaya',              category: 'Fruits',     status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Peach',               category: 'Fruits',     status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Pear',                category: 'Fruits',     status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Persimmon',           category: 'Fruits',     status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Plum',                category: 'Fruits',     status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Pomegranate',         category: 'Fruits',     status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Raspberry',           category: 'Fruits',     status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Strawberry',          category: 'Fruits',     status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Watermelon',          category: 'Fruits',     status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    // Vegetables
+    { name: 'Artichoke',           category: 'Vegetables', status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Asparagus',           category: 'Vegetables', status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Beet',                category: 'Vegetables', status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Bell Pepper',         category: 'Vegetables', status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Bok Choy',            category: 'Vegetables', status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Broccoli',            category: 'Vegetables', status: 'safe',    testsCompleted: 2, lastConsumed: 'May 2' },
+    { name: 'Brussels Sprouts',    category: 'Vegetables', status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Butternut Squash',    category: 'Vegetables', status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Carrot',              category: 'Vegetables', status: 'safe',    testsCompleted: 2, lastConsumed: 'May 2' },
+    { name: 'Cauliflower',         category: 'Vegetables', status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Celery',              category: 'Vegetables', status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Corn',                category: 'Vegetables', status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Cucumber',            category: 'Vegetables', status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Eggplant',            category: 'Vegetables', status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Fennel',              category: 'Vegetables', status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Garlic',              category: 'Vegetables', status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Green Beans',         category: 'Vegetables', status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Kale',                category: 'Vegetables', status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Leek',                category: 'Vegetables', status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Onion',               category: 'Vegetables', status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Parsnip',             category: 'Vegetables', status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Peas',                category: 'Vegetables', status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Potato',              category: 'Vegetables', status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Pumpkin',             category: 'Vegetables', status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Radish',              category: 'Vegetables', status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Snap Peas',           category: 'Vegetables', status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Spinach',             category: 'Vegetables', status: 'unsafe',  testsCompleted: 1, lastConsumed: 'Apr 27' },
+    { name: 'Sweet Potato',        category: 'Vegetables', status: 'safe',    testsCompleted: 2, lastConsumed: 'May 1' },
+    { name: 'Swiss Chard',         category: 'Vegetables', status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Zucchini',            category: 'Vegetables', status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    // Meats
+    { name: 'Beef',                category: 'Meats',      status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Chicken',             category: 'Meats',      status: 'safe',    testsCompleted: 2, lastConsumed: 'May 1' },
+    { name: 'Duck',                category: 'Meats',      status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Herring',             category: 'Meats',      status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Lamb',                category: 'Meats',      status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Pork',                category: 'Meats',      status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Rabbit',              category: 'Meats',      status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Salmon',              category: 'Meats',      status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Sardine',             category: 'Meats',      status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Tuna',                category: 'Meats',      status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Turkey',              category: 'Meats',      status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Venison',             category: 'Meats',      status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    // Other
+    { name: 'Amaranth',            category: 'Other',      status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Arrowroot',           category: 'Other',      status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Barley',              category: 'Other',      status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Basil',               category: 'Other',      status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Black Beans',         category: 'Other',      status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Bread',               category: 'Other',      status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Buckwheat',           category: 'Other',      status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Chia Seeds',          category: 'Other',      status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Chickpeas',           category: 'Other',      status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Cinnamon',            category: 'Other',      status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Coconut',             category: 'Other',      status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Coriander',           category: 'Other',      status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Couscous',            category: 'Other',      status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Flaxseed',            category: 'Other',      status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Ginger',              category: 'Other',      status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Hemp Seeds',          category: 'Other',      status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Kidney Beans',        category: 'Other',      status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Lentils',             category: 'Other',      status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Millet',              category: 'Other',      status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Mung Beans',          category: 'Other',      status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Nutmeg',              category: 'Other',      status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Oatmeal',             category: 'Other',      status: 'safe',    testsCompleted: 2, lastConsumed: 'May 3' },
+    { name: 'Oregano',             category: 'Other',      status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Pasta',               category: 'Other',      status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Polenta',             category: 'Other',      status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Quinoa',              category: 'Other',      status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Rice',                category: 'Other',      status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Rice Cake',           category: 'Other',      status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Sunflower Seed Butter', category: 'Other',    status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Tapioca',             category: 'Other',      status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Turmeric',            category: 'Other',      status: 'unknown', testsCompleted: 0, lastConsumed: null },
+    { name: 'Wheat Germ',          category: 'Other',      status: 'unknown', testsCompleted: 0, lastConsumed: null },
+  ];
+
+  const CATEGORIES = ['Fruits', 'Vegetables', 'Meats', 'Other'];
+
+  function metaText(food) {
+    if (food.status === 'safe')    return 'Last: ' + food.lastConsumed;
+    if (food.status === 'unsafe')  return food.testsCompleted + ' of 2 tests · Last: ' + food.lastConsumed;
+    if (food.status === 'never')   return 'Marked never';
+    return 'Never tried';
+  }
+
+  function subText(food) {
+    if (food.status === 'safe')   return 'Log consumption';
+    if (food.status === 'unsafe') return food.testsCompleted + ' of 2 tests done';
+    if (food.status === 'never')  return 'Marked never';
+    return 'First introduction';
+  }
+
+  function renderOtherFoods() {
+    const container = document.getElementById('other-foods-container');
+    container.innerHTML = '';
+    CATEGORIES.forEach(cat => {
+      const foods = OTHER_FOODS.filter(f => f.category === cat);
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `<div class="cat-label">${cat} <span class="cat-count">${foods.length}</span></div>`;
+      foods.forEach(food => {
+        const row = document.createElement('div');
+        row.className = 'food-row';
+        row.innerHTML = `
+          <div>
+            <div class="food-name">${food.name}</div>
+            <div class="food-meta">${metaText(food)}</div>
+          </div>
+          <span class="badge ${food.status}">${food.status.toUpperCase()}</span>`;
+        row.onclick = () => openLog(food.name, subText(food), food.status);
+        card.appendChild(row);
+      });
+      // Add food button on last category only
+      if (cat === 'Other') {
+        const addRow = document.createElement('div');
+        addRow.className = 'add-food-row';
+        addRow.innerHTML = '<span style="font-size:18px;line-height:1;">＋</span> Add food';
+        addRow.onclick = openAddFood;
+        card.appendChild(addRow);
+      }
+      container.appendChild(card);
+    });
+  }
+
+  // ── Auto-classify ─────────────────────────────────────────────────────────
+  function classifyFood(name) {
+    const lower = name.toLowerCase().trim();
+    const lookup = {
+      Fruits: ['apple','apricot','avocado','banana','blackberry','blueberry','cantaloupe','cherry',
+        'clementine','fig','grape','guava','honeydew','kiwi','lychee','mango','nectarine','orange',
+        'papaya','peach','pear','persimmon','plum','pomegranate','raspberry','strawberry','tomato','watermelon'],
+      Vegetables: ['artichoke','asparagus','beet','bell pepper','bok choy','broccoli','brussels sprout',
+        'butternut','carrot','cauliflower','celery','corn','cucumber','eggplant','fennel','garlic',
+        'green bean','kale','leek','onion','parsnip','pea','potato','pumpkin','radish','snap pea',
+        'spinach','sweet potato','swiss chard','zucchini'],
+      Meats: ['beef','chicken','duck','herring','lamb','pork','rabbit','salmon','sardine','tuna','turkey','venison']
+    };
+    for (const [cat, list] of Object.entries(lookup)) {
+      if (list.some(f => lower.includes(f) || f.includes(lower))) return cat;
+    }
+    return 'Other';
+  }
+
+  // ── Log modal ─────────────────────────────────────────────────────────────
+  function openLog(name, sub, status) {
+    document.getElementById('sheet-title').textContent = name;
+    document.getElementById('sheet-sub').textContent = sub + ' · May 4, 2026';
+    document.getElementById('log-check').checked = true;
+    document.getElementById('reaction-panel').style.display = 'none';
+    document.getElementById('reaction-toggle').textContent = 'Report a reaction';
+    document.getElementById('overlay').style.display = 'flex';
+  }
+
+  function handleOverlay(e) {
+    if (e.target === document.getElementById('overlay')) closeLog();
+  }
+
+  function closeLog() {
+    document.getElementById('overlay').style.display = 'none';
+  }
+
+  function toggleReaction() {
+    const panel = document.getElementById('reaction-panel');
+    const isHidden = panel.style.display === 'none';
+    panel.style.display = isHidden ? 'block' : 'none';
+    document.getElementById('reaction-toggle').textContent = isHidden ? 'Hide' : 'Report a reaction';
+  }
+
+  function submitLog() {
+    const food = document.getElementById('sheet-title').textContent;
+    alert('Logged: ' + food + ' fed.\n\n(Writes to Google Sheets in production.)');
+    closeLog();
+  }
+
+  function submitReaction(level) {
+    const food = document.getElementById('sheet-title').textContent;
+    const newStatus = level === 'mild' ? 'UNSAFE' : 'NEVER';
+    alert(food + ' marked ' + newStatus + '.\n\n(Writes to Google Sheets in production.)');
+    closeLog();
+  }
+
+  // ── Add food modal ────────────────────────────────────────────────────────
+  function previewCategory() {
+    const name = document.getElementById('new-food-name').value.trim();
+    const preview = document.getElementById('cat-preview');
+    if (!name) { preview.textContent = ''; return; }
+    preview.textContent = '→ Will be added to ' + classifyFood(name);
+  }
+
+  function openAddFood() {
+    document.getElementById('new-food-name').value = '';
+    document.getElementById('cat-preview').textContent = '';
+    document.getElementById('add-overlay').style.display = 'flex';
+    setTimeout(() => document.getElementById('new-food-name').focus(), 100);
+  }
+
+  function handleAddOverlay(e) {
+    if (e.target === document.getElementById('add-overlay')) {
+      document.getElementById('add-overlay').style.display = 'none';
+    }
+  }
+
+  function submitNewFood() {
+    const name = document.getElementById('new-food-name').value.trim();
+    if (!name) { document.getElementById('new-food-name').focus(); return; }
+    const cat = classifyFood(name);
+    alert('Added "' + name + '" to ' + cat + ' as UNKNOWN.\n\n(Appends a new row to Google Sheets in production.)');
+    document.getElementById('add-overlay').style.display = 'none';
+  }
+
+  // ── Init ──────────────────────────────────────────────────────────────────
+  renderOtherFoods();
+</script>
+
+</body>
+</html>
