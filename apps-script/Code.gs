@@ -1,19 +1,26 @@
 // Allergen Tracker — Google Apps Script backend
 // Deploy as: Execute as Me, Who has access: Anyone
-// Replace SHEET_ID with your Google Sheet ID before deploying.
+// All requests use GET to avoid CORS preflight issues.
+// Writes pass payload as ?payload=JSON_encoded_string
 
-var SHEET_ID = 'REPLACE_WITH_YOUR_SHEET_ID';
+var SHEET_ID = '1aImPcGOuzH-a4LdD0t8UohtOcsICmXOkiZmYria6zPo';
 
-function doGet() {
+function doGet(e) {
   var ss = SpreadsheetApp.openById(SHEET_ID);
-  var major     = sheetToObjects(ss.getSheetByName('Major_Allergens'));
+
+  // Write operation encoded as GET param
+  if (e.parameter && e.parameter.payload) {
+    var payload = JSON.parse(e.parameter.payload);
+    return handleWrite(ss, payload);
+  }
+
+  // Read operation
+  var major      = sheetToObjects(ss.getSheetByName('Major_Allergens'));
   var otherFoods = sheetToObjects(ss.getSheetByName('Other_Foods'));
   return json({ major: major, otherFoods: otherFoods });
 }
 
-function doPost(e) {
-  var payload   = JSON.parse(e.postData.contents);
-  var ss        = SpreadsheetApp.openById(SHEET_ID);
+function handleWrite(ss, payload) {
   var logSheet  = ss.getSheetByName('Log');
   var today     = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
 
@@ -70,7 +77,6 @@ function updateFeedingRecord(sheet, foodName, isMajor, reaction, today) {
       return 'UNSAFE';
     }
 
-    // No reaction
     if (isMajor) {
       return advanceMajorTest(sheet, headers, r, today);
     } else {
@@ -98,7 +104,6 @@ function advanceMajorTest(sheet, headers, r, today) {
       return 'UNSAFE';
     }
   }
-  // All 4 tests already done — just update last_consumed
   sheet.getRange(r + 1, headers.indexOf('last_consumed') + 1).setValue(today);
   return 'SAFE';
 }

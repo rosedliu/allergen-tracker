@@ -1,5 +1,3 @@
-const NUT_NAMES = ['Peanut', 'Almond', 'Cashew', 'Walnut'];
-
 /**
  * Build a 7-day feeding schedule.
  * @param {object} opts
@@ -15,19 +13,36 @@ function buildSchedule({ major, today }) {
     schedule[d.iso] = { am: [], pm: [], isWeekday: d.isWeekday };
   });
 
-  const safe   = getSafeSlots(major);
-  const toTest = major.filter(f => f.status === 'UNKNOWN' || f.status === 'UNSAFE');
+  const safeNames = major.filter(f => f.status === 'SAFE' && isScheduled(f)).map(f => f.name);
+
+  const unsafeFoods  = major.filter(f => f.status === 'UNSAFE');
+  const unknownFoods = major.filter(f => f.status === 'UNKNOWN');
   const weekdays = days.filter(d => d.isWeekday);
+  let weekdayIdx = 0;
 
-  // 1. Slot one test food per weekday AM, max one per day
-  toTest.forEach((food, i) => {
-    if (i >= weekdays.length) return;
-    const testNum = countTestsDone(food) + 1;
-    schedule[weekdays[i].iso].am.push({ name: food.name, isTest: true, testNumber: testNum });
-  });
+  // Complete all remaining tests for each UNSAFE allergen before starting any UNKNOWN
+  for (const food of unsafeFoods) {
+    const done      = countTestsDone(food);
+    const remaining = 4 - done;
+    for (let t = 0; t < remaining && weekdayIdx < weekdays.length; t++) {
+      const slot = { name: food.name, isTest: true, testNumber: done + t + 1 };
+      schedule[weekdays[weekdayIdx].iso].am.push({ ...slot });
+      schedule[weekdays[weekdayIdx].iso].pm.push({ ...slot });
+      weekdayIdx++;
+    }
+  }
 
-  // 2. Distribute safe foods across AM/PM slots (≥3x per week, no same-day overlap)
-  distributeSafeFoods(schedule, safe, days);
+  // Fill remaining weekday slots with first tests for UNKNOWN allergens
+  for (const food of unknownFoods) {
+    if (weekdayIdx >= weekdays.length) break;
+    const slot = { name: food.name, isTest: true, testNumber: 1 };
+    schedule[weekdays[weekdayIdx].iso].am.push({ ...slot });
+    schedule[weekdays[weekdayIdx].iso].pm.push({ ...slot });
+    weekdayIdx++;
+  }
+
+  // Safe foods: PM-only on weekdays, both meals on weekends, ≤3x/week
+  distributeSafeFoods(schedule, safeNames, days);
 
   return schedule;
 }
@@ -37,70 +52,77 @@ function buildSchedule({ major, today }) {
 function distributeSafeFoods(schedule, safe, days) {
   if (safe.length === 0) return;
 
-  // Each safe food needs at least 3 appearances in 7 days.
-  // We have 14 slots (7 AM + 7 PM). Fill greedily in round-robin,
-  // respecting: no same food twice on same day.
+  const weekends    = days.filter(d => !d.isWeekday);
+  const weekdaysArr = days.filter(d => d.isWeekday);
 
-  // Build ordered slot list: [Mon-AM, Mon-PM, Tue-AM, Tue-PM, ...]
-  const slots = [];
-  days.forEach(d => {
-    slots.push({ iso: d.iso, slot: 'am' });
-    slots.push({ iso: d.iso, slot: 'pm' });
-  });
+  // Peanut+Almond are scheduled as an atomic pair (always together or not at all)
+  const pairActive = safe.includes('Peanut') && safe.includes('Almond');
+  const soloFoods  = pairActive
+    ? safe.filter(n => n !== 'Peanut' && n !== 'Almond')
+    : safe;
 
-  // Assign safe foods via round-robin to hit ≥3 per food
-  // Cap total assignments so we don't overfill slots
-  const assignments = []; // { iso, slot, name }
   const countMap = {};
-  safe.forEach(f => { countMap[f] = 0; });
+  safe.forEach(n => { countMap[n] = 0; });
 
-  // First pass: guarantee 3 for each
-  for (let pass = 0; pass < 3; pass++) {
-    safe.forEach(foodName => {
-      for (const s of slots) {
-        const day = schedule[s.iso];
-        const alreadyThisDay = [...day.am, ...day.pm].map(f => f.name);
-        const slotArr = day[s.slot];
-        if (!alreadyThisDay.includes(foodName) && slotArr.length < 2) {
-          slotArr.push({ name: foodName, isTest: false });
-          countMap[foodName]++;
-          break;
-        }
-      }
-    });
+  // Place Peanut+Almond together into an empty slot (pair needs 2 spaces)
+  function tryPlacePair(iso, slot) {
+    if (countMap['Peanut'] >= 3) return false;
+    const day = schedule[iso];
+    const slotArr = day[slot];
+    if (slotArr.length > 0) return false; // needs a fully empty slot
+    const usedToday = [...day.am, ...day.pm].map(f => f.name);
+    if (usedToday.includes('Peanut') || usedToday.includes('Almond')) return false;
+    slotArr.push({ name: 'Peanut', isTest: false });
+    slotArr.push({ name: 'Almond', isTest: false });
+    countMap['Peanut']++;
+    countMap['Almond']++;
+    return true;
   }
 
-  // Second pass: fill remaining open slots for diversity
-  slots.forEach(s => {
-    const day = schedule[s.iso];
-    const slotArr = day[s.slot];
-    if (slotArr.length >= 2) return;
+  // Place a single safe food; can share only with a test food (fills the second spot)
+  function tryPlace(name, iso, slot) {
+    if (countMap[name] >= 3) return false;
+    const day = schedule[iso];
+    const slotArr = day[slot];
     const usedToday = [...day.am, ...day.pm].map(f => f.name);
-    // Find safe food with fewest appearances not yet used today
-    const candidate = safe
-      .filter(n => !usedToday.includes(n))
-      .sort((a, b) => (countMap[a] || 0) - (countMap[b] || 0))[0];
-    if (candidate) {
-      slotArr.push({ name: candidate, isTest: false });
-      countMap[candidate]++;
+    if (usedToday.includes(name)) return false;
+    if (slotArr.length >= 2) return false;
+    if (slotArr.length === 1 && !slotArr[0].isTest) return false;
+    slotArr.push({ name, isTest: false });
+    countMap[name]++;
+    return true;
+  }
+
+  const fillSlots = [
+    ...weekdaysArr.map(d => ({ iso: d.iso, slot: 'pm' })),
+    ...weekends.flatMap(d => [{ iso: d.iso, slot: 'am' }, { iso: d.iso, slot: 'pm' }]),
+  ];
+
+  // Schedule pair
+  if (pairActive) {
+    for (const d of weekends) {
+      if (tryPlacePair(d.iso, 'am') || tryPlacePair(d.iso, 'pm')) break;
+    }
+    for (const s of fillSlots) {
+      if (countMap['Peanut'] >= 3) break;
+      tryPlacePair(s.iso, s.slot);
+    }
+  }
+
+  // Schedule solo foods
+  soloFoods.forEach(name => {
+    for (const d of weekends) {
+      if (tryPlace(name, d.iso, 'am')) break;
+      if (tryPlace(name, d.iso, 'pm')) break;
     }
   });
-}
 
-// ── Nut grouping ─────────────────────────────────────────────────────────
-
-/**
- * Returns the list of effective "safe slot names" to distribute.
- * If all 4 nuts are SAFE, collapse them into 'Nuts (mixed)'.
- * Otherwise each nut is listed individually.
- */
-function getSafeSlots(major) {
-  const safeNames = major.filter(f => f.status === 'SAFE').map(f => f.name);
-  const allNutsSafe = NUT_NAMES.every(n => safeNames.includes(n));
-
-  return safeNames
-    .filter(n => !NUT_NAMES.includes(n))
-    .concat(allNutsSafe ? ['Nuts (mixed)'] : safeNames.filter(n => NUT_NAMES.includes(n)));
+  soloFoods.forEach(name => {
+    for (const s of fillSlots) {
+      if (countMap[name] >= 3) break;
+      tryPlace(name, s.iso, s.slot);
+    }
+  });
 }
 
 // ── Date helpers ─────────────────────────────────────────────────────────
@@ -117,6 +139,13 @@ function getNext7Days(today) {
     });
   }
   return days;
+}
+
+function isScheduled(food) {
+  const v = food.in_schedule;
+  if (v === undefined || v === null || v === '') return true;
+  if (typeof v === 'boolean') return v;
+  return String(v).toLowerCase() !== 'false';
 }
 
 function countTestsDone(food) {

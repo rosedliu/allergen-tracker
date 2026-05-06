@@ -300,6 +300,16 @@
     }
     .text-input:focus { border-color: var(--accent); }
     .cat-preview { font-size: 12px; color: var(--text-muted); margin-top: 6px; min-height: 18px; }
+
+    /* Safe combined row */
+    .safe-next {
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--accent);
+      background: var(--accent-light);
+      padding: 1px 5px;
+      border-radius: 99px;
+    }
   </style>
 </head>
 <body>
@@ -314,15 +324,15 @@
 
 <div id="status-banner"></div>
 
-<!-- Major Allergens -->
+<!-- Schedule -->
 <div class="section" style="padding-top:18px;">
-  <div class="section-label">Major Allergens</div>
-  <div id="section-major"><div class="banner loading">Loading…</div></div>
+  <div id="section-schedule"><div class="banner loading">Loading…</div></div>
 </div>
 
-<!-- Schedule -->
+<!-- Major Allergens -->
 <div class="section" style="padding-top:6px;">
-  <div id="section-schedule"><div class="banner loading">Loading…</div></div>
+  <div class="section-label">Major Allergens</div>
+  <div id="section-major"><div class="banner loading">Loading…</div></div>
 </div>
 
 <!-- Other Foods -->

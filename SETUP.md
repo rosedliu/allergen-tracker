@@ -74,6 +74,5 @@ Share the `https://YOUR_USERNAME.github.io/allergens-testing/` URL with all care
 
 ## Apps Script URL
 ```
-REPLACE_WITH_YOUR_APPS_SCRIPT_EXEC_URL
+https://script.google.com/macros/s/AKfycbyKXCur60ZRtQA2PcolYvWTTmyczKi-45-X5MmfQnZC6MGzzk8Zgpbapqdj45klzuP4xQ/exec
 ```
-*(Fill this in after deploy)*

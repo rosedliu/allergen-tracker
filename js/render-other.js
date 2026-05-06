@@ -1,4 +1,5 @@
-const CATEGORIES = ['Fruits', 'Vegetables', 'Meats', 'Other'];
+const OTHER_CATEGORIES = ['Fruits', 'Vegetables', 'Meats', 'Other'];
+const CATEGORY_ICONS = { Fruits: '🍎', Vegetables: '🥦', Meats: '🍗', Other: '🍽' };
 
 /**
  * Renders Other Foods section into #section-other.
@@ -12,10 +13,10 @@ function renderOtherFoods(otherFoods, openLog, openAddFood) {
 
   let html = '';
 
-  CATEGORIES.forEach(cat => {
+  OTHER_CATEGORIES.forEach(cat => {
     const foods = otherFoods.filter(f => f.category === cat);
     html += `<div class="card">`;
-    html += `<div class="cat-label">${cat} <span class="cat-count">${foods.length}</span></div>`;
+    html += `<div class="cat-label">${CATEGORY_ICONS[cat] || ''} ${cat} <span class="cat-count">${foods.length}</span></div>`;
 
     foods.forEach(food => {
       const meta = foodMeta(food);
@@ -49,10 +50,17 @@ function renderOtherFoods(otherFoods, openLog, openAddFood) {
   if (addBtn) addBtn.addEventListener('click', openAddFood);
 }
 
+function fmtDate(val) {
+  if (!val) return '—';
+  const d = new Date(val);
+  if (isNaN(d)) return val;
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+}
+
 function foodMeta(food) {
   const s = (food.status || 'UNKNOWN').toUpperCase();
-  if (s === 'SAFE')    return food.last_consumed ? `Last: ${food.last_consumed}` : 'Safe';
-  if (s === 'UNSAFE')  return `${food.tests_completed || 0} of 2 tests · Last: ${food.last_consumed || '—'}`;
+  if (s === 'SAFE')    return food.last_consumed ? `Last: ${fmtDate(food.last_consumed)}` : 'Safe';
+  if (s === 'UNSAFE')  return `${food.tests_completed || 0} of 2 tests · Last: ${fmtDate(food.last_consumed)}`;
   if (s === 'NEVER')   return 'Marked never';
   return 'Never tried';
 }

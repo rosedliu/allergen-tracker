@@ -24,6 +24,17 @@ function countTestsDone(food) {
  * @param {object} schedule - from buildSchedule()
  * @param {function} openLog - callback(name, sub, status)
  */
+function fmtDate(val) {
+  if (!val) return '—';
+  const d = new Date(val);
+  if (isNaN(d)) return val;
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+}
+
+function subLabel(text) {
+  return `<div class="sub-label">${text}</div>`;
+}
+
 function renderMajorAllergens(major, schedule, openLog) {
   const el = document.getElementById('section-major');
   if (!el) return;
@@ -58,13 +69,11 @@ function renderMajorAllergens(major, schedule, openLog) {
   // Attach click handlers after render
   el.querySelectorAll('.allergen-row').forEach(row => {
     row.addEventListener('click', () => {
-      const name   = row.dataset.name;
-      const sub    = row.dataset.sub;
-      const status = row.dataset.status;
-      openLog(name, sub, status);
+      openLog(row.dataset.name, row.dataset.sub, row.dataset.status);
     });
   });
 }
+
 
 function allergenRow(food, schedule, inProgress, openLog) {
   const done    = countTestsDone(food);
@@ -85,7 +94,7 @@ function allergenRow(food, schedule, inProgress, openLog) {
       <div class="row-body">
         <div class="row-name">${food.name}</div>
         ${isSafe ? '' : `<div class="dots">${dots}</div>`}
-        ${!isSafe && food.last_consumed ? `<div class="row-meta">Last: ${food.last_consumed}</div>` : ''}
+        ${!isSafe && food.last_consumed ? `<div class="row-meta">Last: ${fmtDate(food.last_consumed)}</div>` : ''}
       </div>
       <div class="row-right">
         <span class="badge ${food.status.toLowerCase()}">${food.status}</span>
@@ -112,8 +121,8 @@ function getNextServe(name, schedule) {
 }
 
 const ICONS = {
-  Peanut: '🥜', Almond: '🌰', Sesame: '🌱', Egg: '🥚',
-  Cashew: '🥜', Walnut: '🌰', Soy: '🫘', Dairy: '🥛',
+  Peanut: '🥜', Almond: '🌰', Sesame: '🌿', Egg: '🥚',
+  Cashew: '🌰', Walnut: '🌰', Soy: '🫛', Dairy: '🥛',
   Whitefish: '🐟', Shellfish: '🦐',
 };
 function allergenIcon(name) {
