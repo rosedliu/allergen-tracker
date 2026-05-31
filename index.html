@@ -234,6 +234,14 @@
     }
     .add-food-row:active { background: var(--bg); }
 
+    .cat-chevron {
+      display: inline-block;
+      transition: transform 0.2s;
+      color: var(--text-muted);
+      font-size: 14px;
+    }
+    .cat-chevron.collapsed { transform: rotate(-90deg); }
+
     /* ── Modals ── */
     .overlay {
       position: fixed; inset: 0;
@@ -301,6 +309,35 @@
     .text-input:focus { border-color: var(--accent); }
     .cat-preview { font-size: 12px; color: var(--text-muted); margin-top: 6px; min-height: 18px; }
 
+    /* ── Search ── */
+    .search-wrap {
+      position: relative;
+      margin-bottom: 10px;
+    }
+    .search-icon {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 14px;
+      pointer-events: none;
+      color: var(--text-muted);
+    }
+    .search-input {
+      width: 100%;
+      padding: 9px 12px 9px 32px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      font-size: 14px;
+      font-family: inherit;
+      background: white;
+      outline: none;
+      -webkit-appearance: none;
+      color: var(--text);
+    }
+    .search-input:focus { border-color: var(--accent); }
+    .search-input::placeholder { color: var(--text-muted); }
+
     /* Safe combined row */
     .safe-next {
       font-size: 10px;
@@ -338,6 +375,10 @@
 <!-- Other Foods -->
 <div class="section" style="padding-top:6px;">
   <div class="section-label">Other Foods</div>
+  <div class="search-wrap">
+    <span class="search-icon">🔍</span>
+    <input class="search-input" id="food-search" type="search" placeholder="Search foods…" autocomplete="off">
+  </div>
   <div id="section-other"><div class="banner loading">Loading…</div></div>
 </div>
 
@@ -383,7 +424,14 @@
     <div class="field-label">Food name</div>
     <input class="text-input" id="new-food-name" type="text" placeholder="e.g. Blueberry"
            autocomplete="off" oninput="previewCategory()">
-    <div class="cat-preview" id="cat-preview"></div>
+
+    <div class="field-label">Category</div>
+    <select class="text-input" id="new-food-cat" style="cursor:pointer;">
+      <option value="Fruits">🍎 Fruits</option>
+      <option value="Vegetables">🥦 Vegetables</option>
+      <option value="Meats">🍗 Meats</option>
+      <option value="Other" selected>🍽 Other</option>
+    </select>
 
     <button class="submit-btn" onclick="submitNewFood()">Add Food</button>
   </div>
@@ -506,7 +554,7 @@
   // ── Add food modal ─────────────────────────────────────────────────────
   function openAddFood() {
     document.getElementById('new-food-name').value = '';
-    document.getElementById('cat-preview').textContent = '';
+    document.getElementById('new-food-cat').value = 'Other';
     document.getElementById('add-overlay').style.display = 'flex';
     setTimeout(() => document.getElementById('new-food-name').focus(), 100);
   }
@@ -519,14 +567,13 @@
 
   function previewCategory() {
     const name = document.getElementById('new-food-name').value.trim();
-    const el   = document.getElementById('cat-preview');
-    el.textContent = name ? '→ Will be added to ' + classifyFood(name) : '';
+    if (name) document.getElementById('new-food-cat').value = classifyFood(name);
   }
 
   async function submitNewFood() {
     const name = document.getElementById('new-food-name').value.trim();
     if (!name) { document.getElementById('new-food-name').focus(); return; }
-    const category = classifyFood(name);
+    const category = document.getElementById('new-food-cat').value;
     try {
       await postAction({
         action:    'add_food',
@@ -542,6 +589,50 @@
       setBanner('error', 'Could not add food. Try again.');
     }
   }
+
+  // ── Search ────────────────────────────────────────────────────────────────
+  function filterFoods() {
+    const q = document.getElementById('food-search').value.trim().toLowerCase();
+    const section = document.getElementById('section-other');
+    if (!section) return;
+
+    section.querySelectorAll('.card').forEach(card => {
+      const catLabel = card.querySelector('.cat-label');
+      const list     = card.querySelector('.cat-list');
+      const chevron  = card.querySelector('.cat-chevron');
+      const addBtn   = card.querySelector('#add-food-trigger');
+
+      if (!q) {
+        card.querySelectorAll('.food-row').forEach(r => r.style.display = '');
+        if (addBtn) addBtn.style.display = '';
+        if (list && catLabel) {
+          const collapsed = isCollapsed(catLabel.dataset.cat);
+          list.style.display = collapsed ? 'none' : '';
+          if (chevron) chevron.classList.toggle('collapsed', collapsed);
+        }
+        card.style.display = '';
+        return;
+      }
+
+      if (addBtn) addBtn.style.display = 'none';
+
+      let hasMatch = false;
+      card.querySelectorAll('.food-row').forEach(row => {
+        const name = (row.querySelector('.food-name') || {}).textContent || '';
+        const match = name.toLowerCase().includes(q);
+        row.style.display = match ? '' : 'none';
+        if (match) hasMatch = true;
+      });
+
+      card.style.display = hasMatch ? '' : 'none';
+      if (hasMatch && list) {
+        list.style.display = '';
+        if (chevron) chevron.classList.remove('collapsed');
+      }
+    });
+  }
+
+  document.getElementById('food-search').addEventListener('input', filterFoods);
 
   // ── Banner helpers ─────────────────────────────────────────────────────
   function setBanner(type, msg) {
