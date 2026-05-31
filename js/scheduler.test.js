@@ -147,6 +147,44 @@ test('no slot has more than 2 items', () => {
   });
 });
 
+// ── Dairy prerequisite ───────────────────────────────────────────────────
+
+test('Dairy UNKNOWN is not scheduled when Shellfish and Whitefish are not SAFE', () => {
+  const major = [makeUnknown('Dairy'), makeUnknown('Shellfish'), makeUnknown('Whitefish')];
+  const schedule = buildSchedule({ major, today: MONDAY });
+  const hasDairy = Object.values(schedule).some(d =>
+    [...d.am, ...d.pm].some(f => f.name === 'Dairy')
+  );
+  expect(hasDairy).toBe(false);
+});
+
+test('Dairy UNKNOWN is not scheduled when only one prerequisite is SAFE', () => {
+  const major = [makeUnknown('Dairy'), makeSafe('Shellfish'), makeUnknown('Whitefish')];
+  const schedule = buildSchedule({ major, today: MONDAY });
+  const hasDairy = Object.values(schedule).some(d =>
+    [...d.am, ...d.pm].some(f => f.name === 'Dairy')
+  );
+  expect(hasDairy).toBe(false);
+});
+
+test('Dairy UNKNOWN is scheduled when both Shellfish and Whitefish are SAFE', () => {
+  const major = [makeUnknown('Dairy'), makeSafe('Shellfish'), makeSafe('Whitefish')];
+  const schedule = buildSchedule({ major, today: MONDAY });
+  const hasDairy = Object.values(schedule).some(d =>
+    [...d.am, ...d.pm].some(f => f.name === 'Dairy')
+  );
+  expect(hasDairy).toBe(true);
+});
+
+test('Dairy UNSAFE tests are not scheduled when Shellfish and Whitefish are not SAFE', () => {
+  const major = [makeUnsafe('Dairy'), makeUnknown('Shellfish'), makeUnknown('Whitefish')];
+  const schedule = buildSchedule({ major, today: MONDAY });
+  const hasDairy = Object.values(schedule).some(d =>
+    [...d.am, ...d.pm].some(f => f.name === 'Dairy')
+  );
+  expect(hasDairy).toBe(false);
+});
+
 // ── Output shape ─────────────────────────────────────────────────────────
 
 test('schedule covers exactly 7 days starting today', () => {

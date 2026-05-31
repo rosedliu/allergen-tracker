@@ -214,6 +214,8 @@
       padding: 9px 14px; background: var(--bg);
       border-bottom: 1px solid var(--border);
       display: flex; justify-content: space-between;
+      cursor: pointer; user-select: none; -webkit-user-select: none;
+      touch-action: manipulation;
     }
     .cat-count { font-weight: 400; color: var(--text-muted); font-size: 11px; }
 
@@ -267,6 +269,11 @@
       width: 20px; height: 20px; accent-color: var(--accent); flex-shrink: 0;
     }
     .log-row label { font-size: 14px; font-weight: 500; cursor: pointer; }
+    .log-date-input {
+      margin-left: auto; font-size: 13px; border: 1px solid var(--border);
+      border-radius: 8px; padding: 4px 8px; color: var(--text);
+      background: var(--bg); cursor: pointer;
+    }
 
     .submit-btn {
       width: 100%; padding: 14px; background: var(--accent); color: white;
@@ -390,8 +397,9 @@
     <div class="sheet-sub"   id="log-sub"></div>
 
     <div class="log-row">
-      <input type="checkbox" id="log-check" checked>
-      <label for="log-check">Mark as fed today</label>
+      <input type="checkbox" id="log-check" checked onchange="toggleLogDate()">
+      <label for="log-check">Mark as fed</label>
+      <input type="date" id="log-date" class="log-date-input">
     </div>
 
     <button class="submit-btn" id="log-submit-btn" onclick="submitLog()">Log Feeding</button>
@@ -486,6 +494,8 @@
     document.getElementById('log-title').textContent = name;
     document.getElementById('log-sub').textContent = sub + ' · ' + new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
     document.getElementById('log-check').checked = true;
+    document.getElementById('log-date').value = new Date().toISOString().slice(0, 10);
+    document.getElementById('log-date').style.display = '';
     document.getElementById('reaction-panel').style.display = 'none';
     document.getElementById('reaction-toggle').textContent = 'Report a reaction';
     document.getElementById('log-submit-btn').disabled = false;
@@ -499,6 +509,11 @@
   function closeLog() {
     document.getElementById('log-overlay').style.display = 'none';
     _currentLog = null;
+  }
+
+  function toggleLogDate() {
+    const checked = document.getElementById('log-check').checked;
+    document.getElementById('log-date').style.display = checked ? '' : 'none';
   }
 
   function toggleReaction() {
@@ -521,6 +536,7 @@
         reaction:   'none',
         caretaker:  getCaretaker(),
         prevStatus: _currentLog.prevStatus,
+        date:       document.getElementById('log-date').value,
       });
       closeLog();
       await loadAndRender();

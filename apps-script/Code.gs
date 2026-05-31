@@ -22,7 +22,7 @@ function doGet(e) {
 
 function handleWrite(ss, payload) {
   var logSheet  = ss.getSheetByName('Log');
-  var today     = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  var today     = payload.date || Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd');
 
   var action    = payload.action;
   var foodName  = payload.food;

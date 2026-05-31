@@ -7,6 +7,14 @@ const CATEGORY_ICONS = { Fruits: '🍎', Vegetables: '🥦', Meats: '🍗', Othe
  * @param {function} openLog    - callback(name, sub, status)
  * @param {function} openAddFood
  */
+function isCollapsed(cat) {
+  return localStorage.getItem('cat_collapsed_' + cat) !== 'false';
+}
+
+function setCollapsed(cat, val) {
+  localStorage.setItem('cat_collapsed_' + cat, val);
+}
+
 function renderOtherFoods(otherFoods, openLog, openAddFood) {
   const el = document.getElementById('section-other');
   if (!el) return;
@@ -15,8 +23,13 @@ function renderOtherFoods(otherFoods, openLog, openAddFood) {
 
   OTHER_CATEGORIES.forEach(cat => {
     const foods = otherFoods.filter(f => f.category === cat);
+    const collapsed = isCollapsed(cat);
     html += `<div class="card">`;
-    html += `<div class="cat-label">${CATEGORY_ICONS[cat] || ''} ${cat} <span class="cat-count">${foods.length}</span></div>`;
+    html += `<div class="cat-label" data-cat="${cat}">
+      <span>${CATEGORY_ICONS[cat] || ''} ${cat} <span class="cat-count">${foods.length}</span></span>
+      <span class="cat-chevron${collapsed ? ' collapsed' : ''}">▾</span>
+    </div>`;
+    html += `<div class="cat-list"${collapsed ? ' style="display:none;"' : ''}>`;
 
     foods.forEach(food => {
       const meta = foodMeta(food);
@@ -35,10 +48,22 @@ function renderOtherFoods(otherFoods, openLog, openAddFood) {
       html += `<div class="add-food-row" id="add-food-trigger"><span style="font-size:18px;line-height:1;">＋</span> Add food</div>`;
     }
 
-    html += `</div>`;
+    html += `</div></div>`;
   });
 
   el.innerHTML = html;
+
+  el.querySelectorAll('.cat-label').forEach(label => {
+    label.addEventListener('click', () => {
+      const cat = label.dataset.cat;
+      const list = label.nextElementSibling;
+      const chevron = label.querySelector('.cat-chevron');
+      const nowCollapsed = list.style.display === 'none';
+      list.style.display = nowCollapsed ? '' : 'none';
+      chevron.classList.toggle('collapsed', !nowCollapsed);
+      setCollapsed(cat, !nowCollapsed);
+    });
+  });
 
   el.querySelectorAll('.food-row').forEach(row => {
     row.addEventListener('click', () => {

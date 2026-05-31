@@ -15,8 +15,13 @@ function buildSchedule({ major, today }) {
 
   const safeNames = major.filter(f => f.status === 'SAFE' && isScheduled(f)).map(f => f.name);
 
-  const unsafeFoods  = major.filter(f => f.status === 'UNSAFE');
-  const unknownFoods = major.filter(f => f.status === 'UNKNOWN');
+  const dairyUnblocked = ['Shellfish', 'Whitefish'].every(name => {
+    const food = major.find(f => f.name === name);
+    return !food || food.status === 'SAFE';
+  });
+
+  const unsafeFoods  = major.filter(f => f.status === 'UNSAFE'  && (f.name !== 'Dairy' || dairyUnblocked));
+  const unknownFoods = major.filter(f => f.status === 'UNKNOWN' && (f.name !== 'Dairy' || dairyUnblocked));
   const weekdays = days.filter(d => d.isWeekday);
   let weekdayIdx = 0;
 
