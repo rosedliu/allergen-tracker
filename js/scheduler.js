@@ -134,8 +134,12 @@ function distributeSafeFoods(schedule, safe, days) {
 
 function getNext7Days(today) {
   const days = [];
+  // Anchor on today's *local* calendar date, then do the 7-day walk in UTC
+  // (toISOString() alone would shift "today" to tomorrow once UTC has
+  // rolled over past local midnight, e.g. evenings in US timezones).
+  const base = new Date(Date.UTC(today.getFullYear(), today.getMonth(), today.getDate()));
   for (let i = 0; i < 7; i++) {
-    const d = new Date(today);
+    const d = new Date(base);
     d.setUTCDate(d.getUTCDate() + i);
     const dow = d.getUTCDay(); // 0=Sun, 6=Sat
     days.push({
@@ -144,6 +148,13 @@ function getNext7Days(today) {
     });
   }
   return days;
+}
+
+function localISODate(d) {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 function isScheduled(food) {
@@ -157,4 +168,4 @@ function countTestsDone(food) {
   return ['test1', 'test2', 'test3', 'test4'].filter(k => !!food[k]).length;
 }
 
-if (typeof module !== 'undefined') module.exports = { buildSchedule };
+if (typeof module !== 'undefined') module.exports = { buildSchedule, localISODate };

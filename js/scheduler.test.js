@@ -1,4 +1,4 @@
-const { buildSchedule } = require('./scheduler');
+const { buildSchedule, localISODate } = require('./scheduler');
 
 const MONDAY = new Date('2026-05-04T12:00:00Z');
 
@@ -200,4 +200,19 @@ test('each day has am and pm arrays', () => {
     expect(Array.isArray(day.am)).toBe(true);
     expect(Array.isArray(day.pm)).toBe(true);
   });
+});
+
+// ── Local-date rollover (regression) ────────────────────────────────────
+// Evening in a UTC-behind timezone: UTC has already rolled to the next
+// calendar day even though it's still "today" locally.
+test('localISODate uses the local calendar day, not UTC', () => {
+  const eveningLocal = new Date(2026, 4, 4, 22, 0, 0); // May 4, 10pm local time
+  expect(eveningLocal.toISOString().slice(0, 10)).toBe('2026-05-05'); // naive UTC slice would say tomorrow
+  expect(localISODate(eveningLocal)).toBe('2026-05-04');
+});
+
+test('schedule starts on today\'s local date even late in the evening UTC-side', () => {
+  const eveningLocal = new Date(2026, 4, 4, 23, 30, 0); // May 4, 11:30pm local time
+  const schedule = buildSchedule({ major: [], today: eveningLocal });
+  expect(Object.keys(schedule)[0]).toBe('2026-05-04');
 });

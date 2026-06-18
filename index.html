@@ -494,7 +494,7 @@
     document.getElementById('log-title').textContent = name;
     document.getElementById('log-sub').textContent = sub + ' · ' + new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
     document.getElementById('log-check').checked = true;
-    document.getElementById('log-date').value = new Date().toISOString().slice(0, 10);
+    document.getElementById('log-date').value = localISODate(new Date());
     document.getElementById('log-date').style.display = '';
     document.getElementById('reaction-panel').style.display = 'none';
     document.getElementById('reaction-toggle').textContent = 'Report a reaction';

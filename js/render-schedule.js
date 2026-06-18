@@ -8,7 +8,7 @@ function renderSchedule(schedule, openLog) {
   if (!el) return;
 
   const dates = Object.keys(schedule).sort();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localISODate(new Date());
 
   const DAY_LABELS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 
