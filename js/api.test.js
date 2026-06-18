@@ -11,13 +11,13 @@ test('fetchAll calls API_URL and returns parsed JSON', async () => {
   expect(fetch).toHaveBeenCalledTimes(1);
 });
 
-test('postAction sends POST with JSON body', async () => {
+test('postAction sends payload as GET query param', async () => {
   fetch.mockResolvedValue({ json: async () => ({ success: true }) });
   const payload = { action: 'log_feeding', food: 'Egg', isMajor: true, reaction: 'none', caretaker: 'Rose' };
   const result = await postAction(payload);
   expect(result).toEqual({ success: true });
   expect(fetch).toHaveBeenCalledWith(
-    expect.any(String),
-    expect.objectContaining({ method: 'POST', body: JSON.stringify(payload) })
+    expect.stringContaining('?payload=' + encodeURIComponent(JSON.stringify(payload))),
+    expect.objectContaining({ signal: expect.any(Object) })
   );
 });
